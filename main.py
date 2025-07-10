@@ -16,10 +16,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils.data_manager import DataManager
 data_manager = DataManager.get_instance()
 
+# 导入资源路径辅助函数
+from utils.resource_helper import resource_path
+
 def show_splash_screen(app):
     """显示启动屏幕"""
     # 检查是否有启动图像
-    splash_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "splash.png")
+    splash_path = resource_path(os.path.join("assets", "splash.png"))
     if os.path.exists(splash_path):
         splash_pix = QPixmap(splash_path)
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
