@@ -32,15 +32,8 @@ def generate_excel(employee_data, output_path=None):
     for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']:
         ws.column_dimensions[col].width = 15
     
-    # 添加标题
-    ws['A1'] = f"工资条 - {employee_data.get('name', '')}"
-    ws.merge_cells('A1:K1')
-    title_cell = ws['A1']
-    title_cell.font = Font(bold=True, size=16)
-    title_cell.alignment = Alignment(horizontal='center', vertical='center')
-    
-    # 添加表头
-    row = 2
+    # 添加表头（直接从第1行开始）
+    row = 1
     ws.cell(row=row, column=1).value = "姓名"
     ws.cell(row=row, column=2).value = "月份"
     ws.cell(row=row, column=3).value = "基本工资"
@@ -58,8 +51,8 @@ def generate_excel(employee_data, output_path=None):
         cell = ws.cell(row=row, column=col)
         set_cell_style(cell, 'header')
     
-    # 添加数据
-    row = 3
+    # 添加数据（从第2行开始）
+    row = 2
     ws.cell(row=row, column=1).value = employee_data.get('name', '')
     ws.cell(row=row, column=2).value = month
     ws.cell(row=row, column=3).value = employee_data.get('base_salary', 0)
@@ -136,7 +129,7 @@ def batch_generate_excel(employees, output_dir=None):
 
 def generate_summary_excel(employees, month=None, output_path=None):
     """
-    生成汇总工资条Excel文件
+    生成汇总工资条Excel文件 - 每个员工数据前都有表头
     
     参数:
         employees (list): 员工数据字典列表
@@ -163,44 +156,47 @@ def generate_summary_excel(employees, month=None, output_path=None):
     for col in columns:
         ws.column_dimensions[col].width = 15
     
-    # 添加标题
-    ws['A1'] = "工资表"
-    ws.merge_cells('A1:K1')
-    title_cell = ws['A1']
-    title_cell.font = Font(bold=True, size=16)
-    title_cell.alignment = Alignment(horizontal='center', vertical='center')
-    
-    # 添加表头
+    # 表头内容
     headers = ["姓名", "月份", "基本工资", "应出勤天数", "实际出勤天数", 
               "夜班补助", "高温补贴", "迟到罚款", "其他", "缺勤扣款", "实发工资"]
     
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=2, column=col)
-        cell.value = header
-        set_cell_style(cell, 'header')
+    # 当前行
+    current_row = 1
     
-    # 添加员工数据
-    for i, employee in enumerate(employees, 3):  # 从第3行开始
-        ws.cell(row=i, column=1).value = employee.get('name', '')
-        ws.cell(row=i, column=2).value = employee.get('month', month)
-        ws.cell(row=i, column=3).value = employee.get('base_salary', 0)
-        ws.cell(row=i, column=4).value = employee.get('required_days', 0)
-        ws.cell(row=i, column=5).value = employee.get('actual_days', 0)
-        ws.cell(row=i, column=6).value = employee.get('night_shift', 0)
-        ws.cell(row=i, column=7).value = employee.get('high_temp', 0)
-        ws.cell(row=i, column=8).value = employee.get('late_fine', 0)
-        ws.cell(row=i, column=9).value = employee.get('others', 0)
-        ws.cell(row=i, column=10).value = employee.get('absence_deduction', 0)
-        ws.cell(row=i, column=11).value = employee.get('net_salary', 0)
+    # 为每个员工添加表头和数据
+    for employee in employees:
+        # 添加表头
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=current_row, column=col)
+            cell.value = header
+            set_cell_style(cell, 'header')
+        
+        # 添加员工数据
+        current_row += 1
+        ws.cell(row=current_row, column=1).value = employee.get('name', '')
+        ws.cell(row=current_row, column=2).value = employee.get('month', month)
+        ws.cell(row=current_row, column=3).value = employee.get('base_salary', 0)
+        ws.cell(row=current_row, column=4).value = employee.get('required_days', 0)
+        ws.cell(row=current_row, column=5).value = employee.get('actual_days', 0)
+        ws.cell(row=current_row, column=6).value = employee.get('night_shift', 0)
+        ws.cell(row=current_row, column=7).value = employee.get('high_temp', 0)
+        ws.cell(row=current_row, column=8).value = employee.get('late_fine', 0)
+        ws.cell(row=current_row, column=9).value = employee.get('others', 0)
+        ws.cell(row=current_row, column=10).value = employee.get('absence_deduction', 0)
+        ws.cell(row=current_row, column=11).value = employee.get('net_salary', 0)
         
         # 设置样式
         for col in range(1, 12):
-            cell = ws.cell(row=i, column=col)
+            cell = ws.cell(row=current_row, column=col)
             set_cell_style(cell, 'normal')
         
         # 设置特殊单元格样式
-        set_cell_style(ws.cell(row=i, column=10), 'deduction')
-        set_cell_style(ws.cell(row=i, column=11), 'total')
+        set_cell_style(ws.cell(row=current_row, column=10), 'deduction')
+        set_cell_style(ws.cell(row=current_row, column=11), 'total')
+        
+        # 添加空行（除非是最后一个员工）
+        if employee != employees[-1]:
+            current_row += 2  # 增加2行，留出一个空行
     
     # 确定保存路径
     if not output_path:
