@@ -1,0 +1,15 @@
+# 不上传虚拟环境
+.venv/
+venv/
+
+# 不上传IDE配置文件
+.idea/
+.vscode/
+
+# 不上传缓存文件
+__pycache__/
+*.py[cod]
+
+# 不上传敏感文件
+*.env
+*.key
