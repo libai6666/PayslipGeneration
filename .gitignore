@@ -9,6 +9,7 @@ venv/
 # 不上传缓存文件
 __pycache__/
 *.py[cod]
+dist/
 
 # 不上传敏感文件
 *.env
