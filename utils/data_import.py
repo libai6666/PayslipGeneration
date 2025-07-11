@@ -129,7 +129,7 @@ def import_employee_data(file_path):
                                 if field in employee:
                                     try:
                                         if field in ['required_days', 'actual_days']:
-                                            employee[field] = int(float(str(employee[field]).replace(',', '')))
+                                            employee[field] = float(str(employee[field]).replace(',', ''))
                                         else:
                                             employee[field] = float(str(employee[field]).replace(',', ''))
                                     except (ValueError, TypeError):
@@ -254,7 +254,7 @@ def import_employee_data(file_path):
                                     if field in employee:
                                         try:
                                             if field in ['required_days', 'actual_days']:
-                                                employee[field] = int(float(str(employee[field]).replace(',', '')))
+                                                employee[field] = float(str(employee[field]).replace(',', ''))
                                             else:
                                                 employee[field] = float(str(employee[field]).replace(',', ''))
                                         except (ValueError, TypeError):

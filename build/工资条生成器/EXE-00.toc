@@ -53,7 +53,7 @@
  [],
  False,
  False,
- 1752142176,
+ 1752208787,
  [('runw.exe',
    'D:\\tools\\Pycharm\\PycharmWork\\PayslipGeneration\\.venv\\lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')])

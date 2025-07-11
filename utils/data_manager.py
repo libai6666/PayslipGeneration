@@ -23,20 +23,24 @@ class DataManager:
         if DataManager._instance is not None:
             raise RuntimeError("尝试创建DataManager的第二个实例")
         
+        # 当前年份（默认为当前年份）
+        self.current_year = datetime.now().year
+        
         # 当前月份（默认为当前月份）
         self.current_month = datetime.now().month
         
         # 单人模式数据
         self.single_mode_data = {
             'name': '',
+            'year': self.current_year,
+            'month': self.current_month,
             'base_salary': 0.0,
             'required_days': 0,
             'actual_days': 0,
             'night_shift': 0.0,
             'high_temp': 0.0,
             'late_fine': 0.0,
-            'others': 0.0,
-            'month': self.current_month
+            'others': 0.0
         }
         
         # 批量模式数据
@@ -50,7 +54,9 @@ class DataManager:
             data (dict): 单人模式数据字典
         """
         self.single_mode_data = data.copy()
-        # 确保有月份字段
+        # 确保有年份和月份字段
+        if 'year' not in self.single_mode_data:
+            self.single_mode_data['year'] = self.current_year
         if 'month' not in self.single_mode_data:
             self.single_mode_data['month'] = self.current_month
     
@@ -70,8 +76,10 @@ class DataManager:
         参数:
             data_list (list): 员工数据字典列表
         """
-        # 确保每个数据项都有月份字段
+        # 确保每个数据项都有年份和月份字段
         for item in data_list:
+            if 'year' not in item:
+                item['year'] = self.current_year
             if 'month' not in item:
                 item['month'] = self.current_month
         
@@ -85,6 +93,15 @@ class DataManager:
             list: 员工数据字典列表的副本
         """
         return [item.copy() for item in self.batch_mode_data]
+    
+    def set_current_year(self, year):
+        """
+        设置当前年份
+        
+        参数:
+            year (int): 年份
+        """
+        self.current_year = year
     
     def set_current_month(self, month):
         """
@@ -107,7 +124,9 @@ class DataManager:
         """
         # 如果单人模式数据中有名字，则添加到批量模式数据中
         if self.single_mode_data.get('name'):
-            # 确保有月份字段
+            # 确保有年份和月份字段
+            if 'year' not in self.single_mode_data:
+                self.single_mode_data['year'] = self.current_year
             if 'month' not in self.single_mode_data:
                 self.single_mode_data['month'] = self.current_month
                 
@@ -130,13 +149,14 @@ class DataManager:
         """清除所有数据"""
         self.single_mode_data = {
             'name': '',
+            'year': self.current_year,
+            'month': self.current_month,
             'base_salary': 0.0,
             'required_days': 0,
             'actual_days': 0,
             'night_shift': 0.0,
             'high_temp': 0.0,
             'late_fine': 0.0,
-            'others': 0.0,
-            'month': self.current_month
+            'others': 0.0
         }
         self.batch_mode_data = [] 

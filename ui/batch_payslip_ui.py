@@ -4,12 +4,13 @@
 
 import sys
 import os
+import calendar
 from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QFormLayout, QLabel, QLineEdit, 
                            QPushButton, QMessageBox, QDesktopWidget,
                            QTableWidget, QTableWidgetItem, QHeaderView,
-                           QFileDialog, QSpinBox)
+                           QFileDialog, QSpinBox, QInputDialog)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QBrush
 
@@ -87,21 +88,32 @@ class BatchPayslipWindow(QMainWindow):
         
         main_layout.addLayout(toolbar_layout)
         
-        # 在工具栏下方添加月份选择
-        month_layout = QHBoxLayout()
-        month_layout.setSpacing(10)
+        # 在工具栏下方添加年份和月份选择
+        date_layout = QHBoxLayout()
+        date_layout.setSpacing(10)
         
+        # 年份选择
+        year_label = QLabel("年份:")
+        self.year_spinbox = QSpinBox()
+        current_year = datetime.now().year
+        self.year_spinbox.setRange(current_year - 10, current_year + 10)  # 允许选择前后10年
+        self.year_spinbox.setValue(self.data_manager.current_year)  # 默认当前年份
+        self.year_spinbox.setFixedWidth(80)
+        
+        # 月份选择
         month_label = QLabel("月份:")
         self.month_spinbox = QSpinBox()
         self.month_spinbox.setRange(1, 12)
         self.month_spinbox.setValue(self.data_manager.current_month)  # 默认当前月份
         self.month_spinbox.setFixedWidth(60)
         
-        month_layout.addWidget(month_label)
-        month_layout.addWidget(self.month_spinbox)
-        month_layout.addStretch()
+        date_layout.addWidget(year_label)
+        date_layout.addWidget(self.year_spinbox)
+        date_layout.addWidget(month_label)
+        date_layout.addWidget(self.month_spinbox)
+        date_layout.addStretch()
         
-        main_layout.addLayout(month_layout)
+        main_layout.addLayout(date_layout)
         
         # 表格视图
         self.table_widget = QTableWidget()
@@ -130,9 +142,9 @@ class BatchPayslipWindow(QMainWindow):
     
     def setup_table(self):
         """设置表格视图"""
-        # 表头 - 增加月份列
-        headers = ["姓名", "月份", "基本工资", "应出勤天数", "实际出勤天数", 
-                  "夜班补助", "高温补贴", "迟到罚款", "其他", "缺勤扣款", "实发工资"]
+        # 表头 - 增加年份和月份列
+        headers = ["姓名", "年份", "月份", "基本工资", "应出勤天数", "实际出勤天数", 
+                  "夜班补助", "高温补贴", "迟到罚款", "其他", "缺勤扣款", "实发工资", "签字"]
         
         self.table_widget.setColumnCount(len(headers))
         self.table_widget.setHorizontalHeaderLabels(headers)
@@ -158,7 +170,13 @@ class BatchPayslipWindow(QMainWindow):
         self.generate_individual_button.clicked.connect(self.generate_individual_payslips)
         self.clear_button.clicked.connect(self.clear_data)
         self.table_widget.cellChanged.connect(self.cell_changed)
+        self.year_spinbox.valueChanged.connect(self.update_year)
         self.month_spinbox.valueChanged.connect(self.update_month)
+    
+    def update_year(self, year):
+        """更新当前年份，仅影响新添加的行"""
+        self.data_manager.set_current_year(year)
+        print(f"已将默认年份设置为：{year}年")
     
     def update_month(self, month):
         """更新当前月份，仅影响新添加的行"""
@@ -197,24 +215,46 @@ class BatchPayslipWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "导出错误", f"导出模板时出错：{str(e)}")
     
+    def get_days_in_month(self, year, month):
+        """获取指定年月的天数"""
+        return calendar.monthrange(year, month)[1]
+    
     def add_row(self):
         """添加新行"""
         row_count = self.table_widget.rowCount()
         self.table_widget.insertRow(row_count)
         
+        # 获取当前选择的年份和月份
+        year = self.year_spinbox.value()
+        month = self.month_spinbox.value()
+        
+        # 计算当月天数
+        days_in_month = self.get_days_in_month(year, month)
+        
+        # 设置年份列的值为当前选择的年份
+        year_item = QTableWidgetItem(str(year))
+        self.table_widget.setItem(row_count, 1, year_item)
+        
         # 设置月份列的值为当前选择的月份
-        month_item = QTableWidgetItem(str(self.month_spinbox.value()))
-        self.table_widget.setItem(row_count, 1, month_item)
+        month_item = QTableWidgetItem(str(month))
+        self.table_widget.setItem(row_count, 2, month_item)
+        
+        # 设置应出勤天数为当月天数
+        required_days_item = QTableWidgetItem(str(days_in_month))
+        self.table_widget.setItem(row_count, 4, required_days_item)
         
         # 设置缺勤扣款和实发工资单元格为只读
-        for col in [9, 10]:  # 缺勤扣款和实发工资列
+        for col in [10, 11]:  # 缺勤扣款和实发工资列
             item = QTableWidgetItem("0.00")
             item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.table_widget.setItem(row_count, col, item)
         
         # 为数值列添加默认值0
-        for col in range(2, 9):
+        for col in [3, 5, 6, 7, 8, 9]:
             self.table_widget.setItem(row_count, col, QTableWidgetItem("0"))
+            
+        # 为签字列添加空白
+        self.table_widget.setItem(row_count, 12, QTableWidgetItem(""))
     
     def delete_rows(self):
         """删除选中行"""
@@ -231,33 +271,50 @@ class BatchPayslipWindow(QMainWindow):
     def cell_changed(self, row, column):
         """单元格内容变化时更新计算结果"""
         # 忽略缺勤扣款和实发工资列的变化，它们是自动计算的
-        if column < 9 and column != 1:  # 排除月份列
+        # 忽略签字列的变化，它不参与计算
+        if column == 1 or column == 2:  # 年份或月份列变化
+            try:
+                # 获取年份和月份
+                year = int(self.get_cell_text(row, 1) or self.year_spinbox.value())
+                month = int(self.get_cell_text(row, 2) or self.month_spinbox.value())
+                
+                # 计算当月天数并更新应出勤天数
+                days_in_month = self.get_days_in_month(year, month)
+                self.table_widget.setItem(row, 4, QTableWidgetItem(str(days_in_month)))
+                
+                # 重新计算该行
+                self.calculate_row(row)
+            except Exception as e:
+                print(f"更新应出勤天数时出错: {str(e)}")
+            
+            # 保存数据
+            self.save_data()
+        elif column < 10 and column not in [1, 2]:  # 排除年份和月份列
             self.calculate_row(row)
             # 保存数据
             self.save_data()
-        elif column == 1:
-            # 月份发生变化，只保存数据但不重新计算
+        elif column == 12:  # 签字列变化，只保存数据但不重新计算
             self.save_data()
     
     def calculate_row(self, row):
         """计算指定行的缺勤扣款和实发工资"""
         try:
             # 获取输入值
-            base_salary = self.get_cell_value(row, 2, 0.0)
-            required_days = self.get_cell_value(row, 3, 0)
-            actual_days = self.get_cell_value(row, 4, 0)
-            night_shift = self.get_cell_value(row, 5, 0.0)
-            high_temp = self.get_cell_value(row, 6, 0.0)
-            late_fine = self.get_cell_value(row, 7, 0.0)
-            others = self.get_cell_value(row, 8, 0.0)
+            base_salary = self.get_cell_value(row, 3, 0.0)
+            required_days = self.get_cell_value(row, 4, 0.0)  # 改为浮点数默认值
+            actual_days = self.get_cell_value(row, 5, 0.0)    # 改为浮点数默认值
+            night_shift = self.get_cell_value(row, 6, 0.0)
+            high_temp = self.get_cell_value(row, 7, 0.0)
+            late_fine = self.get_cell_value(row, 8, 0.0)
+            others = self.get_cell_value(row, 9, 0.0)
             
             # 计算缺勤扣款和实发工资
             absence_deduction = calculate_absence_deduction(base_salary, required_days, actual_days)
             net_salary = calculate_net_salary(base_salary, absence_deduction, night_shift, high_temp, late_fine, others)
             
             # 更新表格
-            self.update_cell_value(row, 9, f"{absence_deduction:.2f}")
-            self.update_cell_value(row, 10, f"{net_salary:.2f}")
+            self.update_cell_value(row, 10, f"{absence_deduction:.2f}")
+            self.update_cell_value(row, 11, f"{net_salary:.2f}")
             
         except Exception as e:
             print(f"计算错误：{str(e)}")
@@ -298,14 +355,16 @@ class BatchPayslipWindow(QMainWindow):
             
             # 填充数据
             self.table_widget.setItem(row, 0, QTableWidgetItem(employee.get('name', '')))
-            self.table_widget.setItem(row, 1, QTableWidgetItem(str(employee.get('month', self.month_spinbox.value()))))
-            self.table_widget.setItem(row, 2, QTableWidgetItem(str(employee.get('base_salary', '0'))))
-            self.table_widget.setItem(row, 3, QTableWidgetItem(str(employee.get('required_days', '0'))))
-            self.table_widget.setItem(row, 4, QTableWidgetItem(str(employee.get('actual_days', '0'))))
-            self.table_widget.setItem(row, 5, QTableWidgetItem(str(employee.get('night_shift', '0'))))
-            self.table_widget.setItem(row, 6, QTableWidgetItem(str(employee.get('high_temp', '0'))))
-            self.table_widget.setItem(row, 7, QTableWidgetItem(str(employee.get('late_fine', '0'))))
-            self.table_widget.setItem(row, 8, QTableWidgetItem(str(employee.get('others', '0'))))
+            self.table_widget.setItem(row, 1, QTableWidgetItem(str(employee.get('year', self.year_spinbox.value()))))
+            self.table_widget.setItem(row, 2, QTableWidgetItem(str(employee.get('month', self.month_spinbox.value()))))
+            self.table_widget.setItem(row, 3, QTableWidgetItem(str(employee.get('base_salary', '0'))))
+            self.table_widget.setItem(row, 4, QTableWidgetItem(str(employee.get('required_days', '0'))))
+            self.table_widget.setItem(row, 5, QTableWidgetItem(str(employee.get('actual_days', '0'))))
+            self.table_widget.setItem(row, 6, QTableWidgetItem(str(employee.get('night_shift', '0'))))
+            self.table_widget.setItem(row, 7, QTableWidgetItem(str(employee.get('high_temp', '0'))))
+            self.table_widget.setItem(row, 8, QTableWidgetItem(str(employee.get('late_fine', '0'))))
+            self.table_widget.setItem(row, 9, QTableWidgetItem(str(employee.get('others', '0'))))
+            self.table_widget.setItem(row, 11, QTableWidgetItem(employee.get('signature', '')))
             
             # 计算结果
             self.calculate_row(row)
@@ -326,7 +385,7 @@ class BatchPayslipWindow(QMainWindow):
                 
             # 获取月份
             try:
-                month = int(self.get_cell_text(row, 1) or self.month_spinbox.value())
+                month = int(self.get_cell_text(row, 2) or self.month_spinbox.value())
             except ValueError:
                 month = self.month_spinbox.value()
                 
@@ -334,16 +393,18 @@ class BatchPayslipWindow(QMainWindow):
             try:
                 employee = {
                     'name': name_item.text().strip(),
+                    'year': int(self.get_cell_text(row, 1) or self.year_spinbox.value()),
                     'month': month,
-                    'base_salary': self.get_cell_value(row, 2, 0.0),
-                    'required_days': self.get_cell_value(row, 3, 0),
-                    'actual_days': self.get_cell_value(row, 4, 0),
-                    'night_shift': self.get_cell_value(row, 5, 0.0),
-                    'high_temp': self.get_cell_value(row, 6, 0.0),
-                    'late_fine': self.get_cell_value(row, 7, 0.0),
-                    'others': self.get_cell_value(row, 8, 0.0),
-                    'absence_deduction': self.get_cell_value(row, 9, 0.0),
-                    'net_salary': self.get_cell_value(row, 10, 0.0)
+                    'base_salary': self.get_cell_value(row, 3, 0.0),
+                    'required_days': self.get_cell_value(row, 4, 0.0),  # 改为浮点数默认值
+                    'actual_days': self.get_cell_value(row, 5, 0.0),    # 改为浮点数默认值
+                    'night_shift': self.get_cell_value(row, 6, 0.0),
+                    'high_temp': self.get_cell_value(row, 7, 0.0),
+                    'late_fine': self.get_cell_value(row, 8, 0.0),
+                    'others': self.get_cell_value(row, 9, 0.0),
+                    'absence_deduction': self.get_cell_value(row, 10, 0.0),
+                    'net_salary': self.get_cell_value(row, 11, 0.0),
+                    'signature': self.get_cell_text(row, 12)
                 }
                 
                 # 验证关键数据
@@ -378,20 +439,37 @@ class BatchPayslipWindow(QMainWindow):
             return
         
         try:
-            # 获取当前月份
+            # 获取当前年份和月份
+            year = self.year_spinbox.value()
             month = self.month_spinbox.value()
+            
+            # 获取自定义表名
+            default_filename = f"{year}年{month}月工资表.xlsx"
+            filename, ok = QInputDialog.getText(
+                self, 
+                "输入文件名", 
+                "请输入工资表文件名：", 
+                text=default_filename
+            )
+            
+            if not ok or not filename:
+                filename = default_filename
+            
+            # 确保文件名以.xlsx结尾
+            if not filename.lower().endswith('.xlsx'):
+                filename += '.xlsx'
             
             from utils.excel import generate_summary_excel
             output_path = generate_summary_excel(
                 employees, 
                 month, 
-                os.path.join(output_dir, f"{month}月工资表.xlsx")
+                os.path.join(output_dir, filename)
             )
             
             QMessageBox.information(
                 self, 
                 "成功", 
-                f"已成功生成{month}月工资汇总表！\n\n保存在：{output_path}"
+                f"已成功生成工资汇总表！\n\n保存在：{output_path}"
             )
             
         except Exception as e:
@@ -462,22 +540,24 @@ class BatchPayslipWindow(QMainWindow):
                 
                 # 获取月份
                 try:
-                    month = int(self.get_cell_text(row, 1) or self.month_spinbox.value())
+                    month = int(self.get_cell_text(row, 2) or self.month_spinbox.value())
                 except ValueError:
                     month = self.month_spinbox.value()
                     
                 employee = {
                     'name': name,
+                    'year': int(self.get_cell_text(row, 1) or self.year_spinbox.value()),
                     'month': month,
-                    'base_salary': self.get_cell_value(row, 2, 0.0),
-                    'required_days': self.get_cell_value(row, 3, 0),
-                    'actual_days': self.get_cell_value(row, 4, 0),
-                    'night_shift': self.get_cell_value(row, 5, 0.0),
-                    'high_temp': self.get_cell_value(row, 6, 0.0),
-                    'late_fine': self.get_cell_value(row, 7, 0.0),
-                    'others': self.get_cell_value(row, 8, 0.0),
-                    'absence_deduction': self.get_cell_value(row, 9, 0.0),
-                    'net_salary': self.get_cell_value(row, 10, 0.0)
+                    'base_salary': self.get_cell_value(row, 3, 0.0),
+                    'required_days': self.get_cell_value(row, 4, 0.0),  # 改为浮点数默认值
+                    'actual_days': self.get_cell_value(row, 5, 0.0),    # 改为浮点数默认值
+                    'night_shift': self.get_cell_value(row, 6, 0.0),
+                    'high_temp': self.get_cell_value(row, 7, 0.0),
+                    'late_fine': self.get_cell_value(row, 8, 0.0),
+                    'others': self.get_cell_value(row, 9, 0.0),
+                    'absence_deduction': self.get_cell_value(row, 10, 0.0),
+                    'net_salary': self.get_cell_value(row, 11, 0.0),
+                    'signature': self.get_cell_text(row, 12)
                 }
                 employees.append(employee)
             

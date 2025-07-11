@@ -10,8 +10,8 @@ def calculate_absence_deduction(base_salary, required_days, actual_days):
     
     参数:
         base_salary (float): 基本工资
-        required_days (int): 应出勤天数
-        actual_days (int): 实际出勤天数
+        required_days (float): 应出勤天数
+        actual_days (float): 实际出勤天数
     
     返回:
         float: 缺勤扣款金额 (负值表示扣款)
